@@ -1,0 +1,29 @@
+## **Overview of Exam Matrix**
+
+**Exam Matrix** is an advanced AI-driven online proctoring system designed to ensure fair and secure digital examinations using multi-angle smart surveillance. The system continuously monitors the student's presence, detects tab switching or screen navigation attempts, and provides real-time alerts for suspicious activity. With the integration of **360° and 180° monitoring** by using the laptop webcam and a secondary **phone camera positioned on the opposite side**, Exam Matrix offers a complete view of the student’s environment. This dual-camera intelligence eliminates blind spots, making the exam highly secure, reliable, and difficult to manipulate.
+
+---
+
+## **Objectives**
+
+1. **Ensure high exam integrity** by preventing cheating through continuous monitoring.
+2. **Verify student presence** using real-time AI-based face detection.
+3. **Detect suspicious behaviors** such as tab switching or leaving the exam window.
+4. **Provide instant alerts** to supervisors for quick intervention.
+5. **Enhance surveillance** using multi-angle camera feeds for a complete environment view.
+6. **Reduce manual invigilation** through automated AI-based monitoring.
+
+---
+
+## **Key Features**
+
+* **Multi-Angle Monitoring (360° / 180°):** Uses laptop webcam + phone camera to capture full surroundings.
+* **AI Face Detection & Tracking:** Ensures the student remains present and identifiable throughout the exam.
+* **Tab-Switch Detection:** Instantly identifies attempts to move away from the exam interface.
+* **Real-Time Alerts:** Suspicious activity is automatically flagged to supervisors.
+* **Environment Scanning:** Detects multiple faces, unusual movement, or forbidden objects.
+* **Device Restriction:** Blocks additional device usage or unauthorized applications.
+* **Activity Logging:** Maintains detailed time-stamped records of all events.
+* **User-Friendly Interface:** Provides smooth exam flow without disturbing the candidate.
+* **Scalable & Automated:** Handles large numbers of candidates with minimal manual effort.
+
