@@ -68,6 +68,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <p className="text-xs text-muted-foreground truncate">admin@exammatrix.com</p>
             </div>
           </div>
+          <Button variant="outline" className="w-full justify-start text-muted-foreground mb-2" asChild>
+            <Link href="/student-exam">
+              <span className="flex items-center">
+                <span className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+                Simulate Student View
+              </span>
+            </Link>
+          </Button>
           <Button variant="outline" className="w-full justify-start text-muted-foreground" asChild>
             <Link href="/">
               <LogOut className="w-4 h-4 mr-2" />
