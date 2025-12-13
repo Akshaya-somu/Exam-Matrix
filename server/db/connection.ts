@@ -17,14 +17,16 @@ export async function connectMongo() {
   try {
     console.log("Connecting to MongoDB...");
 
-    await mongoose.connect(MONGO_URI, {
+    await mongoose.connect(MONGO_URI as string, {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     });
 
     console.log("✓ MongoDB connected successfully");
-    console.log(`Database: ${mongoose.connection.db.databaseName}`);
+    console.log(
+      `Database: ${mongoose.connection.db?.databaseName || "Unknown"}`
+    );
 
     // Handle connection events
     mongoose.connection.on("error", (err) => {
