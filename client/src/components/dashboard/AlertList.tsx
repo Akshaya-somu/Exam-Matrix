@@ -11,10 +11,10 @@ interface Alert {
 }
 
 const mockAlerts: Alert[] = [
-  { id: "1", type: "multiple_faces", studentName: "Alex Morgan", time: "Just now", severity: "high" },
-  { id: "2", type: "phone_detected", studentName: "Sarah Chen", time: "2m ago", severity: "high" },
-  { id: "3", type: "tab_switch", studentName: "James Wilson", time: "5m ago", severity: "medium" },
-  { id: "4", type: "absent", studentName: "Emily Davis", time: "12m ago", severity: "low" },
+  { id: "1", type: "multiple_faces", studentName: "Preethi", time: "Just now", severity: "high" },
+  { id: "2", type: "phone_detected", studentName: "Aasrith", time: "2m ago", severity: "high" },
+  { id: "3", type: "tab_switch", studentName: "Harshitha", time: "5m ago", severity: "medium" },
+  { id: "4", type: "absent", studentName: "Deepthi", time: "12m ago", severity: "low" },
 ];
 
 export function AlertList() {

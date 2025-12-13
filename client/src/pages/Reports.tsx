@@ -33,11 +33,13 @@ export default function Reports() {
   ];
 
   const students = [
-    { name: "James Wilson", id: "8821", score: 92, status: "Clean", flags: 0 },
-    { name: "Sarah Chen", id: "8822", score: 88, status: "Review", flags: 3 },
-    { name: "Alex Morgan", id: "8823", score: 45, status: "Flagged", flags: 12 },
-    { name: "Emily Davis", id: "8824", score: 78, status: "Clean", flags: 1 },
-    { name: "Michael Brown", id: "8825", score: 85, status: "Clean", flags: 0 },
+    { name: "Akshaya", id: "8821", score: 92, status: "Clean", flags: 0 },
+    { name: "Aasrith", id: "8822", score: 88, status: "Review", flags: 3 },
+    { name: "Preethi", id: "8823", score: 45, status: "Flagged", flags: 12 },
+    { name: "Deepthi", id: "8824", score: 0, status: "Flagged", flags: 1 },
+    { name: "Krishna", id: "8825", score: 85, status: "Clean", flags: 0 },
+    { name: "Jyothi", id: "8826", score: 96, status: "Clean", flags: 0 },
+    { name: "Harshitha", id: "8827", score: 89, status: "Clean", flags: 1 },
   ];
 
   return (

@@ -10,13 +10,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export default function ExamSession() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  const students = Array.from({ length: 12 }).map((_, i) => ({
-    id: i,
-    name: ["Alex Morgan", "Sarah Chen", "James Wilson", "Emily Davis", "Michael Brown", "Lisa Wang", "David Miller", "Jessica Taylor", "Ryan Cooper", "Emma White", "Daniel Lee", "Olivia Martin"][i],
-    status: i === 1 ? "suspicious" : i === 4 ? "absent" : i === 7 ? "multiple_faces" : "active",
-    confidence: 0.85 + Math.random() * 0.14,
-    devices: i === 1 ? 2 : 1
-  }));
+  const students = [
+    { id: 1, name: "Akshaya", status: "active", confidence: 0.98, devices: 1 },
+    { id: 2, name: "Aasrith", status: "suspicious", confidence: 0.75, devices: 2 },
+    { id: 3, name: "Harshitha", status: "active", confidence: 0.95, devices: 1 },
+    { id: 4, name: "Deepthi", status: "absent", confidence: 0.00, devices: 0 },
+    { id: 5, name: "Krishna", status: "active", confidence: 0.92, devices: 1 },
+    { id: 6, name: "Jyothi", status: "active", confidence: 0.96, devices: 1 },
+    { id: 7, name: "Preethi", status: "multiple_faces", confidence: 0.60, devices: 1 },
+    // Fill remaining slots with generic names if needed or repeat
+    { id: 8, name: "Jessica Taylor", status: "active", confidence: 0.91, devices: 1 },
+    { id: 9, name: "Ryan Cooper", status: "active", confidence: 0.88, devices: 1 },
+    { id: 10, name: "Emma White", status: "active", confidence: 0.94, devices: 1 },
+    { id: 11, name: "Daniel Lee", status: "active", confidence: 0.97, devices: 1 },
+    { id: 12, name: "Olivia Martin", status: "active", confidence: 0.93, devices: 1 }
+  ];
 
   return (
     <DashboardLayout>

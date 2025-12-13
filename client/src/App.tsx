@@ -9,6 +9,8 @@ import Landing from "@/pages/Landing";
 import ExamSession from "@/pages/ExamSession";
 import StudentExam from "@/pages/StudentExam";
 import Reports from "@/pages/Reports";
+import Students from "@/pages/Students";
+import Settings from "@/pages/Settings";
 
 function Router() {
   return (
@@ -20,6 +22,8 @@ function Router() {
       <Route path="/session/1" component={ExamSession} />
       <Route path="/student-exam" component={StudentExam} />
       <Route path="/reports" component={Reports} />
+      <Route path="/students" component={Students} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );
