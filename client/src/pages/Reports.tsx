@@ -179,7 +179,7 @@ export default function Reports() {
                       student.status === "Review" ? "bg-orange-100 text-orange-700" :
                       "bg-green-100 text-green-700"
                     )}>
-                      {student.name.charAt(0)}{student.name.split(' ')[1].charAt(0)}
+                      {student.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                     </div>
                     <div>
                       <p className="font-medium text-sm">{student.name}</p>
