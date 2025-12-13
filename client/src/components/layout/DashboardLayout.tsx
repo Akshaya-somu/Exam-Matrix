@@ -64,8 +64,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <AvatarFallback>AD</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-sidebar-foreground truncate">Admin User</p>
-              <p className="text-xs text-muted-foreground truncate">admin@exammatrix.com</p>
+              <p className="text-sm font-medium text-sidebar-foreground truncate">Akshaya</p>
+              <p className="text-xs text-muted-foreground truncate">akshaya@exammatrix.com</p>
             </div>
           </div>
           <Button variant="outline" className="w-full justify-start text-muted-foreground mb-2" asChild>

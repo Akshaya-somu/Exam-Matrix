@@ -133,7 +133,7 @@ export default function Settings() {
               <CardContent className="space-y-4">
                  <div className="grid gap-2">
                    <Label>Admin Email</Label>
-                   <Input defaultValue="admin@exammatrix.com" />
+                   <Input defaultValue="akshaya@exammatrix.com" />
                  </div>
                  <div className="grid gap-2">
                    <Label>Institution API Key</Label>
