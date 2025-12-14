@@ -24,17 +24,62 @@ const JWT_REFRESH_EXPIRES_IN = "7d";
 // Get local network IP address
 function getLocalIP(): string {
   const nets = networkInterfaces();
+
+  // Prioritize WiFi and Ethernet adapters, skip virtual adapters
+  const preferredNames = ["Wi-Fi", "WiFi", "Ethernet", "eth0", "en0", "wlan0"];
+
+  // First pass: look for preferred adapter names
   for (const name of Object.keys(nets)) {
+    const lowerName = name.toLowerCase();
+    const isPreferred = preferredNames.some((pref) =>
+      lowerName.includes(pref.toLowerCase())
+    );
+
+    if (isPreferred) {
+      const netInfo = nets[name];
+      if (!netInfo) continue;
+
+      for (const net of netInfo) {
+        // Skip internal (loopback), non-IPv4, and link-local addresses
+        if (
+          net.family === "IPv4" &&
+          !net.internal &&
+          !net.address.startsWith("169.254")
+        ) {
+          return net.address;
+        }
+      }
+    }
+  }
+
+  // Second pass: accept any non-virtual adapter
+  for (const name of Object.keys(nets)) {
+    const lowerName = name.toLowerCase();
+    // Skip known virtual adapters
+    if (
+      lowerName.includes("vmware") ||
+      lowerName.includes("virtualbox") ||
+      lowerName.includes("vethernet") ||
+      lowerName.includes("hyper-v") ||
+      lowerName.includes("docker")
+    ) {
+      continue;
+    }
+
     const netInfo = nets[name];
     if (!netInfo) continue;
 
     for (const net of netInfo) {
-      // Skip internal (loopback) and non-IPv4 addresses
-      if (net.family === "IPv4" && !net.internal) {
+      if (
+        net.family === "IPv4" &&
+        !net.internal &&
+        !net.address.startsWith("169.254")
+      ) {
         return net.address;
       }
     }
   }
+
   return "localhost";
 }
 

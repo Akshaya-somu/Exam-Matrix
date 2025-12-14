@@ -75,6 +75,13 @@ export default function PhoneCamera() {
 
   const startCamera = async () => {
     try {
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error(
+          "Camera access requires HTTPS connection. Please use Chrome/Safari and allow camera permissions, or access via HTTPS."
+        );
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "user", // Use front camera

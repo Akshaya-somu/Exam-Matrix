@@ -50,7 +50,7 @@ export default function EnhancedTakeExam() {
     enabled: !!params?.examId,
   });
 
-  const { data: questions, isLoading: questionsLoading } = useQuery({
+  const { data: questions = [], isLoading: questionsLoading } = useQuery({
     queryKey: ["questions", params?.examId],
     queryFn: () => apiRequest(`/api/exams/${params?.examId}/questions`),
     enabled: !!params?.examId,
