@@ -3,6 +3,8 @@ import { type Server } from "http";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { Server as IOServer } from "socket.io";
+import QRCode from "qrcode";
+import { networkInterfaces } from "os";
 import { connectMongo } from "./db/connection";
 import {
   UserModel,
@@ -18,6 +20,23 @@ import {
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 const JWT_EXPIRES_IN = "15m";
 const JWT_REFRESH_EXPIRES_IN = "7d";
+
+// Get local network IP address
+function getLocalIP(): string {
+  const nets = networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    const netInfo = nets[name];
+    if (!netInfo) continue;
+
+    for (const net of netInfo) {
+      // Skip internal (loopback) and non-IPv4 addresses
+      if (net.family === "IPv4" && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  return "localhost";
+}
 
 type AuthPayload = {
   sub: string;
@@ -67,14 +86,100 @@ export async function registerRoutes(
     cors: { origin: "*" },
   });
 
+  // Store active video streams by session ID
+  const activeStreams = new Map<
+    string,
+    { studentId: string; examId: string; streams: Set<string> }
+  >();
+
   io.on("connection", (socket) => {
     console.log("Client connected:", socket.id);
+
     socket.on("join", (room: string) => {
       socket.join(room);
       console.log(`Socket ${socket.id} joined room ${room}`);
     });
+
+    // WebRTC signaling for phone camera
+    socket.on(
+      "phone:connect",
+      (data: { sessionId: string; studentId: string; examId: string }) => {
+        console.log("Phone connecting:", data.sessionId);
+        if (!activeStreams.has(data.sessionId)) {
+          activeStreams.set(data.sessionId, {
+            studentId: data.studentId,
+            examId: data.examId,
+            streams: new Set([socket.id]),
+          });
+        } else {
+          activeStreams.get(data.sessionId)?.streams.add(socket.id);
+        }
+        socket.join(`exam:${data.examId}`);
+        socket.join(`session:${data.sessionId}`);
+        io.to(`exam:${data.examId}`).emit("student:stream:ready", {
+          sessionId: data.sessionId,
+          studentId: data.studentId,
+          socketId: socket.id,
+        });
+      }
+    );
+
+    // WebRTC offer/answer signaling
+    socket.on(
+      "webrtc:offer",
+      (data: { to: string; offer: any; sessionId: string }) => {
+        socket.to(data.to).emit("webrtc:offer", {
+          from: socket.id,
+          offer: data.offer,
+          sessionId: data.sessionId,
+        });
+      }
+    );
+
+    socket.on("webrtc:answer", (data: { to: string; answer: any }) => {
+      socket.to(data.to).emit("webrtc:answer", {
+        from: socket.id,
+        answer: data.answer,
+      });
+    });
+
+    socket.on(
+      "webrtc:ice-candidate",
+      (data: { to: string; candidate: any }) => {
+        socket.to(data.to).emit("webrtc:ice-candidate", {
+          from: socket.id,
+          candidate: data.candidate,
+        });
+      }
+    );
+
+    // Student stream started
+    socket.on(
+      "stream:started",
+      (data: { sessionId: string; type: "webcam" | "phone" }) => {
+        io.to(`session:${data.sessionId}`).emit("stream:update", {
+          sessionId: data.sessionId,
+          type: data.type,
+          active: true,
+        });
+      }
+    );
+
     socket.on("disconnect", () => {
       console.log("Client disconnected:", socket.id);
+      // Clean up streams
+      for (const [sessionId, data] of activeStreams.entries()) {
+        if (data.streams.has(socket.id)) {
+          data.streams.delete(socket.id);
+          if (data.streams.size === 0) {
+            activeStreams.delete(sessionId);
+          }
+          io.to(`exam:${data.examId}`).emit("student:stream:disconnected", {
+            sessionId,
+            socketId: socket.id,
+          });
+        }
+      }
     });
   });
 
@@ -208,6 +313,15 @@ export async function registerRoutes(
   );
 
   app.post(
+    "/api/questions",
+    authMiddleware,
+    asyncHandler(async (req: Request, res: Response) => {
+      const question = await QuestionModel.create(req.body);
+      res.status(201).json(question);
+    })
+  );
+
+  app.post(
     "/api/sessions/:id/answers",
     authMiddleware,
     asyncHandler(async (req: Request, res: Response) => {
@@ -298,6 +412,43 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Session not found" });
       io.emit("session:update", session);
       res.json(session);
+    })
+  );
+
+  // Generate QR code for phone camera connection
+  app.get(
+    "/api/sessions/:id/qrcode",
+    authMiddleware,
+    asyncHandler(async (req: Request, res: Response) => {
+      const sessionId = req.params.id;
+      const session = await SessionModel.findById(sessionId);
+
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      // Generate connection URL with local network IP
+      const port = process.env.PORT || "3000";
+      const localIP = getLocalIP();
+      const baseUrl = process.env.BASE_URL || `http://${localIP}:${port}`;
+      const connectionUrl = `${baseUrl}/phone-camera/${sessionId}`;
+
+      try {
+        // Generate QR code as data URL
+        const qrCodeDataUrl = await QRCode.toDataURL(connectionUrl, {
+          width: 300,
+          margin: 2,
+          color: {
+            dark: "#000000",
+            light: "#FFFFFF",
+          },
+        });
+
+        res.json({ qrCode: qrCodeDataUrl, url: connectionUrl });
+      } catch (error) {
+        console.error("QR code generation error:", error);
+        res.status(500).json({ message: "Failed to generate QR code" });
+      }
     })
   );
 

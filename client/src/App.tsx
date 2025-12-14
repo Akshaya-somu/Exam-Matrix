@@ -13,7 +13,10 @@ import ProctorDashboard from "@/pages/proctor/Dashboard";
 import StudentDashboard from "@/pages/student/Dashboard";
 import NotFound from "@/pages/not-found";
 import TakeExam from "@/pages/student/TakeExam";
+import EnhancedTakeExam from "@/pages/student/EnhancedTakeExam";
 import LiveMonitor from "@/pages/proctor/LiveMonitor";
+import EnhancedLiveMonitor from "@/pages/proctor/EnhancedLiveMonitor";
+import PhoneCamera from "@/pages/PhoneCamera";
 
 function ProtectedRoute({ component: Component, allowedRoles, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -44,6 +47,7 @@ function Router() {
     <Switch>
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/phone-camera/:sessionId" component={PhoneCamera} />
 
       <Route path="/">
         {user ? (
@@ -82,7 +86,7 @@ function Router() {
       </Route>
       <Route path="/proctor/monitor">
         <ProtectedRoute
-          component={LiveMonitor}
+          component={EnhancedLiveMonitor}
           allowedRoles={["proctor", "admin"]}
         />
       </Route>
@@ -101,7 +105,10 @@ function Router() {
         />
       </Route>
       <Route path="/student/exam/:examId">
-        <ProtectedRoute component={TakeExam} allowedRoles={["student"]} />
+        <ProtectedRoute
+          component={EnhancedTakeExam}
+          allowedRoles={["student"]}
+        />
       </Route>
       <Route path="/student/exams">
         <ProtectedRoute

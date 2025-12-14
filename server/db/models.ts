@@ -100,7 +100,13 @@ const QuestionSchema = new Schema(
     questionText: { type: String, required: true },
     questionType: {
       type: String,
-      enum: ["multiple_choice", "short_answer", "essay"],
+      enum: [
+        "multiple_choice",
+        "short_answer",
+        "essay",
+        "coding",
+        "true_false",
+      ],
       default: "essay",
     },
     options: [{ type: String }],
