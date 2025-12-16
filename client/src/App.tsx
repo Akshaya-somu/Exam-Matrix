@@ -84,6 +84,12 @@ function Router() {
           allowedRoles={["proctor", "admin"]}
         />
       </Route>
+      <Route path="/proctor/monitor/:examId">
+        <ProtectedRoute
+          component={EnhancedLiveMonitor}
+          allowedRoles={["proctor", "admin"]}
+        />
+      </Route>
       <Route path="/proctor/monitor">
         <ProtectedRoute
           component={EnhancedLiveMonitor}

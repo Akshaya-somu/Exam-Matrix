@@ -22,6 +22,9 @@ import {
   Grid3x3,
   Grid2x2,
   Maximize2,
+  Flag,
+  StopCircle,
+  MessageSquareWarning,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import { apiClient } from "@/lib/api";
@@ -62,7 +65,8 @@ interface Session {
 }
 
 export default function EnhancedLiveMonitor() {
-  const { examId } = useParams<{ examId: string }>();
+  const params = useParams<{ examId?: string }>();
+  const examId = params?.examId;
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
 
@@ -77,15 +81,23 @@ export default function EnhancedLiveMonitor() {
   >(new Map());
   const videoRefs = useState<Map<string, HTMLVideoElement>>(new Map())[0];
 
-  // Fetch exam sessions
+  // Fetch exam sessions - all active sessions if no examId, or specific exam sessions
   const { data: sessions = [], isLoading } = useQuery<Session[]>({
-    queryKey: [`/api/sessions/exam/${examId}`],
+    queryKey: examId ? [`/api/sessions/exam/${examId}`] : ["/api/sessions"],
     refetchInterval: 5000,
+    select: (data) => {
+      // Filter active sessions only
+      console.log("Sessions fetched:", data);
+      const activeSessions = data.filter((s: any) => s.status === "active");
+      console.log("Active sessions:", activeSessions);
+      return activeSessions;
+    },
   });
 
   // Fetch exam details
   const { data: exam } = useQuery({
     queryKey: [`/api/exams/${examId}`],
+    enabled: !!examId,
   });
 
   // WebSocket connection
@@ -262,20 +274,147 @@ export default function EnhancedLiveMonitor() {
     };
   }, [examId]);
 
-  // Initialize students from sessions
+  // Re-join rooms when sessions change (for monitoring all exams)
   useEffect(() => {
-    if (sessions.length > 0 && students.length === 0) {
-      const initialStudents: Student[] = sessions.map((session) => ({
-        id: session.studentId.email,
-        name: session.studentId.name,
-        email: session.studentId.email,
-        status: session.status === "in_progress" ? "active" : "idle",
-        alerts: session.alerts?.length || 0,
-        lastActivity: new Date().toISOString(),
-      }));
-      setStudents(initialStudents);
+    if (socket && !examId && sessions.length > 0) {
+      sessions.forEach((session: Session) => {
+        if (session.examId) {
+          const sessionExamId =
+            typeof session.examId === "object"
+              ? (session.examId as any)._id
+              : session.examId;
+          socket.emit("proctor:join", { examId: sessionExamId });
+        }
+      });
     }
-  }, [sessions, students.length]);
+  }, [socket, sessions, examId]);
+
+  // Initialize students from sessions data
+  useEffect(() => {
+    console.log("Sessions changed:", sessions);
+    if (sessions.length > 0) {
+      console.log("Initializing students from", sessions.length, "sessions");
+      const studentsFromSessions: Student[] = sessions.map(
+        (session: Session) => {
+          const studentData = session.studentId as any;
+          const existingStudent = students.find(
+            (s) => s.id === session._id || s.id === studentData?._id
+          );
+
+          console.log("Processing session:", {
+            sessionId: session._id,
+            studentData,
+            examId: session.examId,
+          });
+
+          return {
+            id: session._id,
+            name:
+              studentData?.name || studentData?.username || "Unknown Student",
+            email: studentData?.email || "",
+            status: (session.status === "active" ? "active" : "idle") as
+              | "active"
+              | "idle"
+              | "suspicious"
+              | "disconnected",
+            alerts: session.alerts?.length || 0,
+            lastActivity: new Date().toISOString(),
+            videoStream: existingStudent?.videoStream, // Preserve existing video stream
+          };
+        }
+      );
+
+      console.log("Setting students:", studentsFromSessions);
+      setStudents(studentsFromSessions);
+
+      // Request streams for all active students
+      if (socket) {
+        studentsFromSessions.forEach((student) => {
+          socket.emit("proctor:request:stream", {
+            studentId: student.id,
+          });
+        });
+      }
+    }
+  }, [sessions, socket]);
+
+  // Proctor action functions
+  const sendWarning = async (studentId: string, studentName: string) => {
+    if (!socket) return;
+
+    socket.emit("proctor:warning", {
+      studentId,
+      examId,
+      message: "Warning: Suspicious activity detected. Follow exam rules.",
+    });
+
+    const newAlert: Alert = {
+      id: Date.now().toString(),
+      studentId,
+      studentName,
+      type: "tab_switch",
+      severity: "medium",
+      timestamp: new Date().toISOString(),
+      description: "Proctor issued warning",
+    };
+    setAlerts((prev) => [newAlert, ...prev]);
+  };
+
+  const pauseStudentExam = async (studentId: string, sessionId: string) => {
+    if (!socket || !confirm("Pause this student's exam?")) return;
+
+    socket.emit("proctor:pause", {
+      studentId,
+      sessionId,
+      examId,
+    });
+
+    setStudents((prev) =>
+      prev.map((s) => (s.id === studentId ? { ...s, status: "idle" } : s))
+    );
+  };
+
+  const terminateStudentExam = async (
+    studentId: string,
+    sessionId: string,
+    studentName: string
+  ) => {
+    if (
+      !socket ||
+      !confirm(`Terminate ${studentName}'s exam? This action cannot be undone.`)
+    )
+      return;
+
+    socket.emit("proctor:terminate", {
+      studentId,
+      sessionId,
+      examId,
+      reason: "Terminated by proctor due to violations",
+    });
+
+    setStudents((prev) =>
+      prev.map((s) =>
+        s.id === studentId ? { ...s, status: "disconnected" } : s
+      )
+    );
+  };
+
+  const flagStudent = (studentId: string, studentName: string) => {
+    setStudents((prev) =>
+      prev.map((s) => (s.id === studentId ? { ...s, status: "suspicious" } : s))
+    );
+
+    const newAlert: Alert = {
+      id: Date.now().toString(),
+      studentId,
+      studentName,
+      type: "multiple_faces",
+      severity: "high",
+      timestamp: new Date().toISOString(),
+      description: "Flagged by proctor for review",
+    };
+    setAlerts((prev) => [newAlert, ...prev]);
+  };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -346,7 +485,7 @@ export default function EnhancedLiveMonitor() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              {exam?.title || "Live Proctoring"}
+              {examId ? exam?.title || "Live Proctoring" : "All Active Exams"}
             </h1>
             <p className="text-gray-600 mt-1">
               Real-time monitoring and alerts
@@ -554,6 +693,61 @@ export default function EnhancedLiveMonitor() {
                         <p className="text-xs text-gray-500 mt-1">
                           Last seen: {formatTime(student.lastActivity)}
                         </p>
+
+                        {/* Proctor Action Buttons */}
+                        <div className="flex gap-1 mt-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              sendWarning(student.id, student.name);
+                            }}
+                          >
+                            <MessageSquareWarning className="h-3 w-3 mr-1" />
+                            Warn
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              pauseStudentExam(student.id, student.id);
+                            }}
+                          >
+                            <StopCircle className="h-3 w-3 mr-1" />
+                            Pause
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="flex-1 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              terminateStudentExam(
+                                student.id,
+                                student.id,
+                                student.name
+                              );
+                            }}
+                          >
+                            <Ban className="h-3 w-3 mr-1" />
+                            End
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              flagStudent(student.id, student.name);
+                            }}
+                          >
+                            <Flag className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

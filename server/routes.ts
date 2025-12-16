@@ -184,6 +184,50 @@ export async function registerRoutes(
       });
     });
 
+    // Proctor sends warning to student
+    socket.on(
+      "proctor:warning",
+      (data: { studentId: string; examId: string; message: string }) => {
+        console.log(`Proctor warning student ${data.studentId}:`, data.message);
+        io.to(`session:${data.studentId}`).emit("proctor:warning", {
+          message: data.message,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    );
+
+    // Proctor pauses student exam
+    socket.on(
+      "proctor:pause",
+      (data: { studentId: string; sessionId: string; examId: string }) => {
+        console.log(`Proctor pausing exam for student ${data.studentId}`);
+        io.to(`session:${data.sessionId}`).emit("proctor:pause", {
+          message: "Your exam has been paused by the proctor.",
+          timestamp: new Date().toISOString(),
+        });
+      }
+    );
+
+    // Proctor terminates student exam
+    socket.on(
+      "proctor:terminate",
+      (data: {
+        studentId: string;
+        sessionId: string;
+        examId: string;
+        reason: string;
+      }) => {
+        console.log(
+          `Proctor terminating exam for student ${data.studentId}:`,
+          data.reason
+        );
+        io.to(`session:${data.sessionId}`).emit("proctor:terminate", {
+          message: `Your exam has been terminated: ${data.reason}`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    );
+
     // WebRTC signaling for phone camera
     socket.on(
       "phone:connect",
@@ -431,7 +475,21 @@ export async function registerRoutes(
       res.json(sessions);
     })
   );
-
+  app.get(
+    "/api/sessions/exam/:examId",
+    authMiddleware,
+    asyncHandler(async (req: Request, res: Response) => {
+      const { examId } = req.params;
+      console.log("Fetching sessions for examId:", examId);
+      const sessions = await SessionModel.find({ examId })
+        .populate("examId")
+        .populate("studentId")
+        .sort({ createdAt: -1 })
+        .lean();
+      console.log(`Found ${sessions.length} sessions for exam ${examId}`);
+      res.json(sessions);
+    })
+  );
   app.post(
     "/api/sessions",
     authMiddleware,

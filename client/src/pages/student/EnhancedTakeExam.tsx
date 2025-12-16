@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertTriangle,
   Clock,
@@ -17,6 +18,8 @@ import {
   Smartphone,
   ChevronLeft,
   ChevronRight,
+  Shield,
+  UserCheck,
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { DetectionService } from "@/lib/detection";
@@ -37,6 +40,10 @@ export default function EnhancedTakeExam() {
   const [phoneActive, setPhoneActive] = useState(false);
   const [qrCode, setQrCode] = useState<string>("");
   const [showQrCode, setShowQrCode] = useState(true);
+  const [examStarted, setExamStarted] = useState(false);
+  const [rulesAccepted, setRulesAccepted] = useState(false);
+  const [identityVerified, setIdentityVerified] = useState(false);
+  const [camerasSetup, setCamerasSetup] = useState(false);
   const detectionService = useRef(new DetectionService());
   const socketRef = useRef<any>(null);
   const webcamRef = useRef<HTMLVideoElement>(null);
@@ -57,7 +64,7 @@ export default function EnhancedTakeExam() {
   });
 
   useEffect(() => {
-    if (exam && !hasCreatedSession.current) {
+    if (exam && examStarted && !hasCreatedSession.current) {
       hasCreatedSession.current = true;
       createSession();
       setupDetection();
@@ -71,7 +78,7 @@ export default function EnhancedTakeExam() {
       }
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [exam]);
+  }, [exam, examStarted]);
 
   useEffect(() => {
     if (exam && timeRemaining === 0) {
@@ -97,7 +104,7 @@ export default function EnhancedTakeExam() {
         method: "POST",
         body: JSON.stringify({
           examId: params?.examId,
-          studentId: "674b8e3f9d5c8a1b4e9f2d1c",
+          studentId: user?.id,
           status: "active",
           startedAt: new Date(),
         }),
@@ -209,6 +216,32 @@ export default function EnhancedTakeExam() {
             } catch (error) {
               console.error("WebRTC setup error:", error);
             }
+          }
+        );
+
+        // Handle proctor warnings
+        socketRef.current.on(
+          "proctor:warning",
+          (data: { message: string; timestamp: string }) => {
+            alert(`⚠️ PROCTOR WARNING\n\n${data.message}`);
+          }
+        );
+
+        // Handle proctor pause
+        socketRef.current.on(
+          "proctor:pause",
+          (data: { message: string; timestamp: string }) => {
+            alert(`⏸️ EXAM PAUSED\n\n${data.message}`);
+            setTimeLeft(0); // Freeze timer
+          }
+        );
+
+        // Handle proctor termination
+        socketRef.current.on(
+          "proctor:terminate",
+          (data: { message: string; timestamp: string }) => {
+            alert(`🛑 EXAM TERMINATED\n\n${data.message}`);
+            handleSubmitExam();
           }
         );
       } catch (err) {
@@ -348,6 +381,300 @@ export default function EnhancedTakeExam() {
           <Button onClick={() => setLocation("/student/dashboard")}>
             Back to Dashboard
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Pre-Exam Verification Screen
+  if (!examStarted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <Card className="shadow-lg">
+            <CardContent className="p-8">
+              {/* Header */}
+              <div className="text-center mb-8">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                  <Shield className="w-8 h-8 text-blue-600" />
+                </div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  Pre-Exam Verification
+                </h1>
+                <p className="text-gray-600">{exam.name}</p>
+              </div>
+
+              <div className="space-y-6">
+                {/* Identity Verification */}
+                <Card className="border-2">
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div
+                        className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                          identityVerified ? "bg-green-100" : "bg-gray-100"
+                        }`}
+                      >
+                        <UserCheck
+                          className={`w-5 h-5 ${
+                            identityVerified
+                              ? "text-green-600"
+                              : "text-gray-400"
+                          }`}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg mb-2">
+                          Identity Verification
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                          Confirm your identity before proceeding with the exam.
+                        </p>
+                        <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <span className="text-gray-500">Name:</span>
+                              <span className="font-medium ml-2">
+                                {user?.username || "Student"}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Email:</span>
+                              <span className="font-medium ml-2">
+                                {user?.email || "student@example.com"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="identity"
+                            checked={identityVerified}
+                            onCheckedChange={(checked) =>
+                              setIdentityVerified(checked as boolean)
+                            }
+                          />
+                          <Label
+                            htmlFor="identity"
+                            className="text-sm cursor-pointer"
+                          >
+                            I confirm that the above information is correct
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Camera Setup Instructions */}
+                <Card className="border-2">
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div
+                        className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                          camerasSetup ? "bg-green-100" : "bg-gray-100"
+                        }`}
+                      >
+                        <Camera
+                          className={`w-5 h-5 ${
+                            camerasSetup ? "text-green-600" : "text-gray-400"
+                          }`}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg mb-2">
+                          Camera Setup Instructions
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                          Position your cameras for proper monitoring during the
+                          exam.
+                        </p>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                          <h4 className="font-semibold text-sm text-blue-900 mb-3">
+                            📷 Laptop Camera:
+                          </h4>
+                          <ul className="text-sm text-blue-800 space-y-2">
+                            <li>
+                              • Position your laptop directly in front of you
+                              (180° view)
+                            </li>
+                            <li>
+                              • Ensure your face is clearly visible and well-lit
+                            </li>
+                            <li>• Keep your entire workspace in frame</li>
+                            <li>• Do not cover or obstruct the camera</li>
+                          </ul>
+                        </div>
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+                          <h4 className="font-semibold text-sm text-purple-900 mb-3">
+                            📱 Phone Camera (Optional):
+                          </h4>
+                          <ul className="text-sm text-purple-800 space-y-2">
+                            <li>
+                              • Place phone behind you or to the side (360°
+                              monitoring)
+                            </li>
+                            <li>
+                              • Use front-facing camera for rear room coverage
+                            </li>
+                            <li>
+                              • Scan QR code in the exam interface to connect
+                            </li>
+                            <li>• Ensure phone is stable and won't fall</li>
+                          </ul>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="cameras"
+                            checked={camerasSetup}
+                            onCheckedChange={(checked) =>
+                              setCamerasSetup(checked as boolean)
+                            }
+                          />
+                          <Label
+                            htmlFor="cameras"
+                            className="text-sm cursor-pointer"
+                          >
+                            I have positioned my cameras as instructed
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Exam Rules */}
+                <Card className="border-2">
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div
+                        className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                          rulesAccepted ? "bg-green-100" : "bg-gray-100"
+                        }`}
+                      >
+                        <AlertTriangle
+                          className={`w-5 h-5 ${
+                            rulesAccepted ? "text-green-600" : "text-gray-400"
+                          }`}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg mb-2">
+                          Exam Rules & Guidelines
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                          Read and accept the following rules before starting.
+                        </p>
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                          <h4 className="font-semibold text-sm text-red-900 mb-3">
+                            ❌ Prohibited Actions:
+                          </h4>
+                          <ul className="text-sm text-red-800 space-y-2">
+                            <li>
+                              • No communication with others during the exam
+                            </li>
+                            <li>
+                              • Do not switch tabs or open other applications
+                            </li>
+                            <li>• No unauthorized materials or resources</li>
+                            <li>• Do not leave your seat without permission</li>
+                            <li>
+                              • Multiple faces detected will trigger alerts
+                            </li>
+                          </ul>
+                        </div>
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                          <h4 className="font-semibold text-sm text-green-900 mb-3">
+                            ✓ Required Behavior:
+                          </h4>
+                          <ul className="text-sm text-green-800 space-y-2">
+                            <li>• Remain visible to the camera at all times</li>
+                            <li>• Keep your hands visible on the desk</li>
+                            <li>• Face the screen throughout the exam</li>
+                            <li>• Follow proctor instructions immediately</li>
+                            <li>• Report any technical issues promptly</li>
+                          </ul>
+                        </div>
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                          <h4 className="font-semibold text-sm text-yellow-900 mb-3">
+                            ⚠️ Warnings & Consequences:
+                          </h4>
+                          <ul className="text-sm text-yellow-800 space-y-2">
+                            <li>
+                              • You will receive warnings for suspicious
+                              activity
+                            </li>
+                            <li>• Proctors can pause or terminate your exam</li>
+                            <li>• All activities are recorded and logged</li>
+                            <li>
+                              • Violations may result in exam invalidation
+                            </li>
+                          </ul>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="rules"
+                            checked={rulesAccepted}
+                            onCheckedChange={(checked) =>
+                              setRulesAccepted(checked as boolean)
+                            }
+                          />
+                          <Label
+                            htmlFor="rules"
+                            className="text-sm cursor-pointer"
+                          >
+                            I have read and accept all exam rules and guidelines
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Start Exam Button */}
+              <div className="mt-8 flex justify-center">
+                <Button
+                  size="lg"
+                  className="px-8"
+                  disabled={
+                    !identityVerified || !camerasSetup || !rulesAccepted
+                  }
+                  onClick={() => setExamStarted(true)}
+                >
+                  {identityVerified && camerasSetup && rulesAccepted ? (
+                    <>
+                      <CheckCircle className="w-5 h-5 mr-2" />
+                      Start Exam
+                    </>
+                  ) : (
+                    "Complete all verifications to start"
+                  )}
+                </Button>
+              </div>
+
+              {/* Exam Info */}
+              <div className="mt-6 pt-6 border-t">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <p className="text-sm text-gray-500">Duration</p>
+                    <p className="font-semibold text-lg">
+                      {exam.durationMinutes} min
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Questions</p>
+                    <p className="font-semibold text-lg">{questions.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Total Marks</p>
+                    <p className="font-semibold text-lg">
+                      {exam.totalMarks || questions.length * 10}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );

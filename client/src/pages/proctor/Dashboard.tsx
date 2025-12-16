@@ -1,13 +1,29 @@
 import { useQuery } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Monitor, Users, AlertTriangle, CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Monitor,
+  Users,
+  AlertTriangle,
+  CheckCircle,
+  Video,
+  Clock,
+} from "lucide-react";
 import { apiRequest } from "@/lib/api";
+import { useLocation } from "wouter";
 
 export default function ProctorDashboard() {
+  const [, setLocation] = useLocation();
+
   const { data: sessions } = useQuery({
     queryKey: ["sessions"],
     queryFn: () => apiRequest("/api/sessions"),
+  });
+
+  const { data: exams = [] } = useQuery({
+    queryKey: ["exams"],
+    queryFn: () => apiRequest("/api/exams"),
   });
 
   const activeSessions =
@@ -72,6 +88,75 @@ export default function ProctorDashboard() {
             );
           })}
         </div>
+
+        {/* Active Exams */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Video className="w-5 h-5" />
+              Active Exams - Live Monitoring
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {exams.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Monitor className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>No exams available</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {exams.map((exam: any) => {
+                  const examSessions =
+                    sessions?.filter(
+                      (s: any) =>
+                        s.examId?._id === exam._id && s.status === "active"
+                    ) || [];
+
+                  return (
+                    <Card
+                      key={exam._id}
+                      className="hover:shadow-lg transition-shadow"
+                    >
+                      <CardContent className="p-4">
+                        <div className="space-y-3">
+                          <div>
+                            <h3 className="font-semibold text-lg truncate">
+                              {exam.title || exam.name}
+                            </h3>
+                            <p className="text-sm text-gray-500 truncate">
+                              {exam.description}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-4 text-sm">
+                            <div className="flex items-center gap-1 text-gray-600">
+                              <Users className="w-4 h-4" />
+                              <span>{examSessions.length} active</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-gray-600">
+                              <Clock className="w-4 h-4" />
+                              <span>{exam.durationMinutes || 60} min</span>
+                            </div>
+                          </div>
+
+                          <Button
+                            className="w-full"
+                            onClick={() =>
+                              setLocation(`/proctor/monitor/${exam._id}`)
+                            }
+                          >
+                            <Monitor className="w-4 h-4 mr-2" />
+                            Monitor Exam
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {flaggedSessions.length > 0 && (
           <Card className="border-red-200">
