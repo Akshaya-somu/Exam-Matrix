@@ -122,6 +122,95 @@ export default function EnhancedTakeExam() {
           webcamRef.current.srcObject = stream;
         }
         setWebcamActive(true);
+
+        // Set up WebSocket and WebRTC for proctors
+        socketRef.current = io("/", { path: "/ws" });
+        socketRef.current.on("connect", () => {
+          socketRef.current.emit("join", session._id);
+
+          // Notify server that student is ready to stream
+          socketRef.current.emit("student:stream:ready", {
+            sessionId: session._id,
+            examId: params?.examId,
+            studentId: user?.id || "student",
+            studentName: user?.username || "Student",
+          });
+        });
+
+        // Handle proctor requesting video stream
+        socketRef.current.on(
+          "proctor:request:stream",
+          async (data: { proctorId: string }) => {
+            try {
+              const peerConnection = new RTCPeerConnection({
+                iceServers: [
+                  { urls: "stun:stun.l.google.com:19302" },
+                  { urls: "stun:stun1.l.google.com:19302" },
+                ],
+              });
+
+              // Add webcam stream tracks to peer connection
+              stream.getTracks().forEach((track) => {
+                peerConnection.addTrack(track, stream);
+              });
+
+              // Handle ICE candidates
+              peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                  socketRef.current.emit("webrtc:ice-candidate", {
+                    to: data.proctorId,
+                    candidate: event.candidate,
+                  });
+                }
+              };
+
+              // Create and send offer to proctor
+              const offer = await peerConnection.createOffer();
+              await peerConnection.setLocalDescription(offer);
+
+              socketRef.current.emit("webrtc:offer", {
+                to: data.proctorId,
+                offer: offer,
+                sessionId: session._id,
+              });
+
+              // Handle answer from proctor
+              socketRef.current.on(
+                "webrtc:answer",
+                async (answerData: {
+                  from: string;
+                  answer: RTCSessionDescriptionInit;
+                }) => {
+                  if (answerData.from === data.proctorId) {
+                    await peerConnection.setRemoteDescription(
+                      new RTCSessionDescription(answerData.answer)
+                    );
+                  }
+                }
+              );
+
+              // Handle ICE candidates from proctor
+              socketRef.current.on(
+                "webrtc:ice-candidate",
+                async (candidateData: {
+                  from: string;
+                  candidate: RTCIceCandidateInit;
+                }) => {
+                  if (
+                    candidateData.from === data.proctorId &&
+                    candidateData.candidate
+                  ) {
+                    await peerConnection.addIceCandidate(
+                      new RTCIceCandidate(candidateData.candidate)
+                    );
+                  }
+                }
+              );
+            } catch (error) {
+              console.error("WebRTC setup error:", error);
+            }
+          }
+        );
       } catch (err) {
         console.error("Webcam error:", err);
         toast({
@@ -130,11 +219,6 @@ export default function EnhancedTakeExam() {
           variant: "destructive",
         });
       }
-
-      socketRef.current = io("/", { path: "/ws" });
-      socketRef.current.on("connect", () => {
-        socketRef.current.emit("join", session._id);
-      });
     } catch (error) {
       console.error("Session creation error:", error);
     }

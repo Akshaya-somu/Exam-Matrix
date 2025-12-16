@@ -72,6 +72,10 @@ export default function EnhancedLiveMonitor() {
   const [gridView, setGridView] = useState<"2x2" | "3x3">("3x3");
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
+  const [peerConnections, setPeerConnections] = useState<
+    Map<string, RTCPeerConnection>
+  >(new Map());
+  const videoRefs = useState<Map<string, HTMLVideoElement>>(new Map())[0];
 
   // Fetch exam sessions
   const { data: sessions = [], isLoading } = useQuery<Session[]>({
@@ -94,6 +98,107 @@ export default function EnhancedLiveMonitor() {
       console.log("Connected to WebSocket");
       newSocket.emit("proctor:join", { examId });
     });
+
+    // Handle student stream ready notification
+    newSocket.on(
+      "student:stream:ready",
+      async (data: {
+        sessionId: string;
+        studentId: string;
+        socketId: string;
+        studentName: string;
+      }) => {
+        console.log("Student stream ready:", data);
+
+        // Request video stream from student
+        newSocket.emit("proctor:request:stream", {
+          studentId: data.socketId,
+        });
+
+        // Set up WebRTC peer connection
+        const peerConnection = new RTCPeerConnection({
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+          ],
+        });
+
+        // Handle incoming video tracks
+        peerConnection.ontrack = (event) => {
+          console.log("Received remote track", event);
+          const [remoteStream] = event.streams;
+
+          setStudents((prev) =>
+            prev.map((student) =>
+              student.id === data.studentId || student.email === data.studentId
+                ? { ...student, videoStream: remoteStream }
+                : student
+            )
+          );
+
+          // Attach stream to video element
+          const videoElement = videoRefs.get(data.studentId);
+          if (videoElement) {
+            videoElement.srcObject = remoteStream;
+          }
+        };
+
+        // Handle ICE candidates
+        peerConnection.onicecandidate = (event) => {
+          if (event.candidate) {
+            newSocket.emit("webrtc:ice-candidate", {
+              to: data.socketId,
+              candidate: event.candidate,
+            });
+          }
+        };
+
+        // Handle WebRTC offer from student
+        newSocket.on(
+          "webrtc:offer",
+          async (offerData: {
+            from: string;
+            offer: RTCSessionDescriptionInit;
+            sessionId: string;
+          }) => {
+            if (offerData.sessionId === data.sessionId) {
+              await peerConnection.setRemoteDescription(
+                new RTCSessionDescription(offerData.offer)
+              );
+              const answer = await peerConnection.createAnswer();
+              await peerConnection.setLocalDescription(answer);
+
+              newSocket.emit("webrtc:answer", {
+                to: offerData.from,
+                answer: answer,
+              });
+            }
+          }
+        );
+
+        // Handle ICE candidates from student
+        newSocket.on(
+          "webrtc:ice-candidate",
+          async (candidateData: {
+            from: string;
+            candidate: RTCIceCandidateInit;
+          }) => {
+            if (
+              candidateData.from === data.socketId &&
+              candidateData.candidate
+            ) {
+              await peerConnection.addIceCandidate(
+                new RTCIceCandidate(candidateData.candidate)
+              );
+            }
+          }
+        );
+
+        setPeerConnections((prev) =>
+          new Map(prev).set(data.studentId, peerConnection)
+        );
+      }
+    );
 
     newSocket.on("alert", (data: any) => {
       const newAlert: Alert = {
@@ -378,14 +483,36 @@ export default function EnhancedLiveMonitor() {
                   >
                     <CardContent className="p-0">
                       <div className="relative aspect-video bg-gray-900 rounded-t-lg overflow-hidden">
-                        {/* Placeholder for video stream */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Avatar className="h-20 w-20">
-                            <AvatarFallback className="text-2xl">
-                              {student.name.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                        </div>
+                        {/* Video stream */}
+                        {student.videoStream ? (
+                          <video
+                            ref={(el) => {
+                              if (el) {
+                                videoRefs.set(student.id, el);
+                                if (student.videoStream) {
+                                  el.srcObject = student.videoStream;
+                                }
+                              }
+                            }}
+                            autoPlay
+                            playsInline
+                            muted
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="text-center">
+                              <Avatar className="h-20 w-20 mx-auto mb-2">
+                                <AvatarFallback className="text-2xl">
+                                  {student.name.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <p className="text-sm text-gray-400">
+                                Waiting for video...
+                              </p>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Status Badge */}
                         <div className="absolute top-2 left-2">

@@ -145,6 +145,45 @@ export async function registerRoutes(
       console.log(`Socket ${socket.id} joined room ${room}`);
     });
 
+    // Proctor joins exam monitoring
+    socket.on("proctor:join", (data: { examId: string }) => {
+      socket.join(`exam:${data.examId}`);
+      console.log(`Proctor ${socket.id} monitoring exam ${data.examId}`);
+    });
+
+    // Student stream ready notification
+    socket.on(
+      "student:stream:ready",
+      (data: {
+        sessionId: string;
+        examId: string;
+        studentId: string;
+        studentName: string;
+      }) => {
+        console.log("Student stream ready:", data);
+        socket.join(`exam:${data.examId}`);
+        socket.join(`session:${data.sessionId}`);
+
+        // Notify all proctors monitoring this exam
+        io.to(`exam:${data.examId}`).emit("student:stream:ready", {
+          sessionId: data.sessionId,
+          studentId: data.studentId,
+          studentName: data.studentName,
+          socketId: socket.id,
+        });
+      }
+    );
+
+    // Proctor requests student stream
+    socket.on("proctor:request:stream", (data: { studentId: string }) => {
+      console.log(
+        `Proctor ${socket.id} requesting stream from ${data.studentId}`
+      );
+      io.to(data.studentId).emit("proctor:request:stream", {
+        proctorId: socket.id,
+      });
+    });
+
     // WebRTC signaling for phone camera
     socket.on(
       "phone:connect",
