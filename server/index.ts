@@ -2,12 +2,31 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
-import { createServer } from "http";
+import { createServer as createHttpServer } from "http";
+import { createServer as createHttpsServer } from "https";
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
 import { connectMongo } from "./db/connection";
 import { seedDatabase } from "./db/seed";
 
 const app = express();
-const httpServer = createServer(app);
+
+// Try to use HTTPS if certificates exist
+let httpServer;
+const certPath = join(process.cwd(), "certs", "server.crt");
+const keyPath = join(process.cwd(), "certs", "server.key");
+
+if (existsSync(certPath) && existsSync(keyPath)) {
+  const httpsOptions = {
+    key: readFileSync(keyPath),
+    cert: readFileSync(certPath),
+  };
+  httpServer = createHttpsServer(httpsOptions, app);
+  console.log("✓ HTTPS enabled with self-signed certificate");
+} else {
+  httpServer = createHttpServer(app);
+  console.log("⚠ Running on HTTP (certificates not found)");
+}
 
 declare module "http" {
   interface IncomingMessage {

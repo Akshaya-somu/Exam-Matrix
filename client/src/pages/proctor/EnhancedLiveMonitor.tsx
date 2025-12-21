@@ -27,7 +27,6 @@ import {
   MessageSquareWarning,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
-import { apiClient } from "@/lib/api";
 
 interface Student {
   id: string;
@@ -95,7 +94,12 @@ export default function EnhancedLiveMonitor() {
   });
 
   // Fetch exam details
-  const { data: exam } = useQuery({
+  const { data: exam } = useQuery<{
+    _id: string;
+    name: string;
+    status: string;
+    durationMinutes: number;
+  }>({
     queryKey: [`/api/exams/${examId}`],
     enabled: !!examId,
   });
@@ -485,7 +489,7 @@ export default function EnhancedLiveMonitor() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              {examId ? exam?.title || "Live Proctoring" : "All Active Exams"}
+              {examId ? exam?.name || "Live Proctoring" : "All Active Exams"}
             </h1>
             <p className="text-gray-600 mt-1">
               Real-time monitoring and alerts

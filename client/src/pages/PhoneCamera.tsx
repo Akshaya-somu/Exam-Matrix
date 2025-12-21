@@ -75,11 +75,28 @@ export default function PhoneCamera() {
 
   const startCamera = async () => {
     try {
-      // Check if getUserMedia is available
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error(
-          "Camera access requires HTTPS connection. Please use Chrome/Safari and allow camera permissions, or access via HTTPS."
-        );
+      // Try to access camera - will throw proper error if not available
+      const getUserMedia =
+        navigator.mediaDevices?.getUserMedia ||
+        (navigator as any).getUserMedia ||
+        (navigator as any).webkitGetUserMedia ||
+        (navigator as any).mozGetUserMedia;
+
+      if (!getUserMedia) {
+        // If mediaDevices is missing on HTTP, give specific instructions
+        if (
+          window.location.protocol === "http:" &&
+          window.location.hostname !== "localhost" &&
+          window.location.hostname !== "127.0.0.1"
+        ) {
+          throw new Error(
+            "Camera API blocked on HTTP. Enable Chrome flag 'insecure origins treated as secure' and restart Chrome."
+          );
+        } else {
+          throw new Error(
+            "Camera API not supported in this browser. Please use Chrome or Safari."
+          );
+        }
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -107,7 +124,30 @@ export default function PhoneCamera() {
       });
     } catch (err: any) {
       console.error("Camera error:", err);
-      setError(err.message || "Failed to access camera");
+
+      // Provide specific error messages based on actual error
+      let errorMessage = err.message || "Failed to access camera";
+
+      if (err.name === "NotAllowedError") {
+        errorMessage =
+          "Camera permission denied. Please allow camera access in your browser settings.";
+      } else if (err.name === "NotFoundError") {
+        errorMessage = "No camera found on this device.";
+      } else if (err.name === "NotReadableError") {
+        errorMessage = "Camera is already in use by another application.";
+      } else if (err.name === "NotSupportedError" || err.name === "TypeError") {
+        // Only show HTTPS error for actual security errors
+        if (
+          window.location.protocol === "http:" &&
+          window.location.hostname !== "localhost" &&
+          window.location.hostname !== "127.0.0.1"
+        ) {
+          errorMessage =
+            "Camera access blocked on HTTP. Enable Chrome flag 'insecure origins treated as secure' or use HTTPS.";
+        }
+      }
+
+      setError(errorMessage);
       setStreaming(false);
     }
   };
@@ -232,9 +272,43 @@ export default function PhoneCamera() {
             <div className="bg-red-500/20 border border-red-500 rounded-lg p-4 mb-6">
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-white">Camera Error</p>
-                  <p className="text-sm text-white/80">{error}</p>
+                <div className="flex-1">
+                  <p className="font-semibold text-white mb-2">Camera Error</p>
+                  <p className="text-sm text-white/90 mb-3">{error}</p>
+
+                  {(error.toLowerCase().includes("http") ||
+                    error.toLowerCase().includes("chrome flag")) && (
+                    <div className="bg-white/10 rounded p-3 text-xs text-white/90 space-y-2">
+                      <p className="font-semibold text-white">
+                        🔧 Chrome Setup Instructions:
+                      </p>
+                      <ol className="list-decimal list-inside space-y-1.5 ml-2">
+                        <li>Open Chrome browser on your phone</li>
+                        <li>
+                          Type in address bar:{" "}
+                          <code className="bg-white/20 px-1.5 py-0.5 rounded">
+                            chrome://flags
+                          </code>
+                        </li>
+                        <li>Search: "insecure origins treated as secure"</li>
+                        <li>
+                          Click "Add" and paste this URL:
+                          <br />
+                          <code className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] break-all">
+                            {window.location.origin}
+                          </code>
+                        </li>
+                        <li>Set dropdown to "Enabled"</li>
+                        <li>Click "Relaunch" button at bottom</li>
+                        <li>After Chrome restarts, scan QR code again</li>
+                        <li>Click "Allow" when prompted for camera access</li>
+                      </ol>
+                      <p className="text-[10px] text-yellow-300 mt-2">
+                        ⚠️ Make sure to copy the full URL and enable the flag
+                        before relaunching
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
