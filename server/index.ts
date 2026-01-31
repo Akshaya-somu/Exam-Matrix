@@ -77,9 +77,10 @@ app.use((req, res, next) => {
    * ROOT / HEALTH ROUTE
    * This fixes Render 502 when opening the backend URL
    */
-  app.get("/", (_req, res) => {
-    res.status(200).send("Exam Matrix Backend is running 🚀");
-  });
+  app.get("/health", (_req, res) => {
+  res.status(200).send("Exam Matrix Backend is running 🚀");
+});
+;
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
