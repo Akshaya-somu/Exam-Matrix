@@ -85,6 +85,11 @@ app.use((req, res, next) => {
   await connectMongo();
   await seedDatabase();
   await registerRoutes(httpServer, app);
+  // Health check / root route (IMPORTANT for Render)
+app.get("/", (_req, res) => {
+  res.status(200).send("Exam Matrix Backend is running 🚀");
+});
+
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
