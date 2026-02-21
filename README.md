@@ -1,3 +1,12 @@
+## 🚀 Live Deployment
+
+Backend API is deployed and accessible here:
+
+🔗 **Live URL:** https://exam-matrix-backend.onrender.com
+
+> ⚠️ Note: Since this is hosted on Render (free tier), the server may go to sleep when idle.  
+> First request may take a few seconds to respond.
+
 # 🎓 Exam Matrix
 
 An intelligent exam proctoring system with dual-camera monitoring, real-time AI detection, and comprehensive session management.
